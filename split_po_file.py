@@ -40,7 +40,7 @@ def split_po_file(input_file, items_per_file=300):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='POファイルを指定した項目数ごとに分割します')
     parser.add_argument('input_file', help='分割するPOファイルのパス')
-    parser.add_argument('--items', type=int, default=200, help='各ファイルに含める項目数（デフォルト: 200')
+    parser.add_argument('--items', type=int, default=100, help='各ファイルに含める項目数（デフォルト: 100')
 
     args = parser.parse_args()
 
