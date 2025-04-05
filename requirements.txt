@@ -1,1 +1,4 @@
 polib
+python-dotenv
+langcodes
+google-generativeai
