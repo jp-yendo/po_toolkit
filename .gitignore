@@ -173,3 +173,4 @@ cython_debug/
 # Project specific
 ja_JP/
 *.po
+instruction-*.txt

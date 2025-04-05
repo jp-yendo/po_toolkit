@@ -26,7 +26,7 @@ model = genai.GenerativeModel(
     generation_config=generation_config,
 )
 
-def translate(lang_from, lang_to, content):
+def translate(lang_from, lang_to, content, instruction=None):
     # convert lang_from and lang_to to language names
     lang_from = Language.get(lang_from).display_name()
     lang_to = Language.get(lang_to).display_name()
@@ -45,8 +45,13 @@ The translation is:\n
 <End>\n
 \n
 Translate the content to {lang_from} into {lang_to}:\n
-\n
-<Start>{content}<End>"""
+"""
+
+    # 指示がある場合はメッセージに追加
+    if instruction:
+        message += f"\nTranslation instructions:\n{instruction}\n\n"
+
+    message += f"<Start>{content}<End>"
 
     # create chat session
     chat_session = model.start_chat(history=[])
@@ -60,7 +65,24 @@ Translate the content to {lang_from} into {lang_to}:\n
     # return translation
     return trans
 
-def translate_po_file(po_file_path, lang_from, lang_to, save_interval=100):
+def read_instruction(file_path):
+    """
+    指示ファイルから内容を読み込みます
+
+    Args:
+        file_path (str): 指示ファイルのパス
+
+    Returns:
+        str: 追加情報の内容
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read().strip()
+    except Exception as e:
+        print(f"指示ファイルの読み込みエラー: {e}")
+        return None
+
+def translate_po_file(po_file_path, lang_from, lang_to, save_interval=100, instruction=None):
     """
     POファイル内の未翻訳の行を翻訳し、ファイルを更新します
 
@@ -69,6 +91,7 @@ def translate_po_file(po_file_path, lang_from, lang_to, save_interval=100):
         lang_from (str): 翻訳元の言語コード
         lang_to (str): 翻訳先の言語コード
         save_interval (int): 保存間隔（行数）
+        additional_info (str, optional): 翻訳に関する追加情報や指示
 
     Returns:
         int: 翻訳された行数
@@ -87,6 +110,8 @@ def translate_po_file(po_file_path, lang_from, lang_to, save_interval=100):
 
     print(f"翻訳が必要な行: {untranslated_count}行")
     print(f"保存間隔: {save_interval}行")
+    if instruction:
+        print(f"指示: {instruction}")
 
     # 未翻訳のエントリを翻訳
     translated_count = 0
@@ -96,7 +121,7 @@ def translate_po_file(po_file_path, lang_from, lang_to, save_interval=100):
         source_text = entry.msgid
 
         # 翻訳を実行
-        translated_text = translate(lang_from, lang_to, source_text)
+        translated_text = translate(lang_from, lang_to, source_text, instruction)
 
         # 翻訳結果を設定
         entry.msgstr = translated_text
@@ -104,12 +129,11 @@ def translate_po_file(po_file_path, lang_from, lang_to, save_interval=100):
         entry.flags.append("fuzzy")
 
         translated_count += 1
-        print(f"翻訳完了: {translated_count}/{untranslated_count}")
+        print(f"{translated_count}/{untranslated_count}")
 
         # 指定間隔ごとに保存
         if translated_count % save_interval == 0:
             po.save(po_file_path)
-            print(f"中間保存: {translated_count}行の翻訳を保存しました")
 
     # 最終保存
     po.save(po_file_path)
@@ -124,11 +148,17 @@ def main():
     parser.add_argument('--from-lang', '--from', required=True, help='翻訳元の言語コード (例: en)')
     parser.add_argument('--to-lang', '--to', required=True, help='翻訳先の言語コード (例: ja)')
     parser.add_argument('--save-interval', '-i', type=int, default=100, help='保存間隔（行数、デフォルト: 100）')
+    parser.add_argument('--instruction', '-a', help='翻訳に関する追加情報や指示を含むファイルのパス')
 
     args = parser.parse_args()
 
+    # 指示の取得
+    instruction = None
+    if args.instruction:
+        instruction = read_instruction(args.instruction)
+
     # 翻訳を実行
-    translate_po_file(args.po_file, args.from_lang, args.to_lang, args.save_interval)
+    translate_po_file(args.po_file, args.from_lang, args.to_lang, args.save_interval, instruction)
 
 if __name__ == "__main__":
     main()
