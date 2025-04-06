@@ -125,8 +125,6 @@ def translate_po_file(po_file_path, lang_from, lang_to, save_interval=100, instr
 
         # 翻訳結果を設定
         entry.msgstr = translated_text
-        entry.comment = f"Translated by Gemini API from {lang_from} to {lang_to}"
-        entry.flags.append("fuzzy")
 
         translated_count += 1
         print(f"{translated_count}/{untranslated_count}")
