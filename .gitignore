@@ -174,3 +174,4 @@ cython_debug/
 ja_JP/
 *.po
 instruction-*.txt
+samples/
