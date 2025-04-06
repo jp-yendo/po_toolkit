@@ -91,7 +91,7 @@ def translate_po_file(po_file_path, lang_from, lang_to, save_interval=100, instr
         lang_from (str): 翻訳元の言語コード
         lang_to (str): 翻訳先の言語コード
         save_interval (int): 保存間隔（行数）
-        additional_info (str, optional): 翻訳に関する追加情報や指示
+        instruction (str, optional): 翻訳に関する追加情報や指示
 
     Returns:
         int: 翻訳された行数
