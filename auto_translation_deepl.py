@@ -35,7 +35,7 @@ def protect_placeholders(text):
     def replace_placeholder(match):
         nonlocal counter
         placeholder = match.group(0)
-        replacement = f"__PLACEHOLDER_{counter}__"
+        replacement = f"REPLACE{counter}"
         placeholders[replacement] = placeholder
         counter += 1
         return replacement
@@ -58,9 +58,13 @@ def restore_placeholders(text, placeholders):
     """
     restored_text = text
 
-    # プレースホルダーを元の埋め込み文字列に戻す
-    for replacement, placeholder in placeholders.items():
-        restored_text = restored_text.replace(replacement, placeholder)
+    # プレースホルダーを長い順にソートして置換
+    # これにより、例えば10が1の一部として誤って置換されることを防ぐ
+    sorted_replacements = sorted(placeholders.keys(), key=len, reverse=True)
+
+    for replacement in sorted_replacements:
+        placeholder = placeholders[replacement]
+        restored_text = re.sub(replacement, placeholder, restored_text, flags=re.IGNORECASE)
 
     return restored_text
 
@@ -181,22 +185,58 @@ def translate_po_file(po_file_path, lang_from, lang_to, save_interval=100):
 
         # 翻訳結果を設定
         entry.msgstr = translated_text
-        entry.comment = f"Translated by DeepL API from {lang_from} to {lang_to}"
-        entry.flags.append("fuzzy")
 
         translated_count += 1
-        print(f"翻訳完了: {translated_count}/{untranslated_count}")
+        print(f"{translated_count}/{untranslated_count}")
 
         # 指定間隔ごとに保存
         if translated_count % save_interval == 0:
             po.save(po_file_path)
-            print(f"中間保存: {translated_count}行の翻訳を保存しました")
 
     # 最終保存
     po.save(po_file_path)
     print(f"翻訳完了: {po_file_path} に {translated_count} 行の翻訳を保存しました")
 
     return translated_count
+
+def check_and_fix_placeholders(po_file_path, lang_from, lang_to):
+    """
+    POファイル内の翻訳文字列をチェックし、置き換え文字が残っている場合は再翻訳を行います
+
+    Args:
+        po_file_path (str): POファイルのパス
+        lang_from (str): 翻訳元の言語コード
+        lang_to (str): 翻訳先の言語コード
+
+    Returns:
+        int: 修正された行数
+    """
+    # POファイルを読み込む
+    po = polib.pofile(po_file_path)
+
+    # 修正が必要なエントリをカウント
+    fixed_count = 0
+    pattern = r'(?i)replace\d+'
+
+    for entry in po:
+        if entry.msgstr and re.search(pattern, entry.msgstr):
+            # 再翻訳を実行
+            translated_text = translate(lang_from, lang_to, entry.msgid)
+            entry.msgstr = translated_text
+
+            print(f"{entry.msgid}")
+            print("->")
+            print(f"{entry.msgstr}")
+
+            fixed_count += 1
+
+    if fixed_count > 0:
+        po.save(po_file_path)
+        print(f"リカバリ完了: {fixed_count} 行を修正しました")
+    else:
+        print("修正が必要な行は見つかりませんでした")
+
+    return fixed_count
 
 def main():
     # コマンドライン引数の設定
@@ -205,11 +245,16 @@ def main():
     parser.add_argument('--from-lang', '--from', required=True, help='翻訳元の言語コード (例: en)')
     parser.add_argument('--to-lang', '--to', required=True, help='翻訳先の言語コード (例: ja)')
     parser.add_argument('--save-interval', '-i', type=int, default=100, help='保存間隔（行数、デフォルト: 100）')
+    parser.add_argument('--recover', '-r', action='store_true', help='PLACEHOLDERが残っている翻訳を修正するリカバリモード')
 
     args = parser.parse_args()
 
-    # 翻訳を実行
-    translate_po_file(args.po_file, args.from_lang, args.to_lang, args.save_interval)
+    if args.recover:
+        # リカバリモードで実行
+        check_and_fix_placeholders(args.po_file, args.from_lang, args.to_lang)
+    else:
+        # 通常の翻訳モードで実行
+        translate_po_file(args.po_file, args.from_lang, args.to_lang, args.save_interval)
 
 if __name__ == "__main__":
     main()
